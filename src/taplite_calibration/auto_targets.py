@@ -589,6 +589,10 @@ def enrich_scenario(
         settings_frame = pd.read_csv(calibration_settings, low_memory=False)
         if set(settings_frame.columns) != {"key", "value"}:
             raise ValueError("auto calibration settings must have key,value columns")
+        # Settings values may mix numbers and empty strings. Convert to object
+        # before updates so pandas 3's strict dtype assignment does not reject
+        # valid string-valued settings.
+        settings_frame["value"] = settings_frame["value"].astype(object)
         workers = settings_frame["key"].astype(str).str.strip().eq("workers")
         if workers.sum() != 1:
             raise ValueError("auto calibration settings require exactly one workers row")

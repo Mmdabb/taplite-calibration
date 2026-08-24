@@ -14,6 +14,8 @@
   sources cannot repair an invalid prepared input.
 - Added a checked-in, synthetic three-zone quickstart dataset and executable
   end-to-end example that requires no proprietary data or TAPLite executable.
+- Hardened OD demand and settings updates for pandas 3 read-only arrays and
+  strict mixed-type assignment behavior.
 
 ## 0.1.0 - 2026-08-24
 

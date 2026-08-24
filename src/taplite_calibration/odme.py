@@ -259,7 +259,14 @@ def _write_adjusted_demands(
             replacement = dense[row_key]
             has = np.isfinite(replacement)
             selected = np.flatnonzero(use)[has]
-            volume = pd.to_numeric(frame["volume"], errors="coerce").fillna(0).to_numpy(float)
+            # pandas 3 may expose a read-only NumPy view. ODME intentionally
+            # mutates this independent output buffer before writing the staged
+            # demand file, so request an explicit writable copy.
+            volume = (
+                pd.to_numeric(frame["volume"], errors="coerce")
+                .fillna(0)
+                .to_numpy(dtype=float, copy=True)
+            )
             volume[selected] = replacement[has]
             frame["volume"] = volume
             frame.to_csv(destination / demand_file, index=False)
