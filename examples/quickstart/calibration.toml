@@ -1,0 +1,26 @@
+schema_version = 1
+
+[project]
+input_dir = "inputs"
+output_dir = "outputs"
+
+[pipeline]
+mode = "both"
+processors = 2
+
+[odme]
+policy_root = "inputs/odme/policies"
+scenario_root = "inputs/scenarios"
+daily_target_csv = "inputs/observations/daily_screens.csv"
+daily_target_column = "observed_daily_vehicle_volume"
+factor_cap = 0.20
+kl_weight = 0.001
+max_iterations = 5
+projection_iterations = 1000
+projection_tolerance = 0.000001
+
+[auto_calibration]
+scenario_root = "inputs/scenarios"
+backend = "smoke"
+periods = ["am", "md", "pm"]
+timeout_seconds = 60

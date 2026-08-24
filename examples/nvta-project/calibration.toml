@@ -1,0 +1,51 @@
+schema_version = 1
+
+[project]
+input_dir = "inputs"
+output_dir = "outputs"
+
+[pipeline]
+mode = "both"
+processors = 20
+
+# These paths are consulted only when prepared-input QA fails.
+[prepare.odme]
+source_scenario_root = "inputs/raw/scenarios"
+daily_screen_source_csv = "inputs/raw/screen-counts.csv"
+screen_id_column = "Screen Code"
+observed_column = "Obs.2025 (Apply Growth to 2018 COG Cnts)"
+policy_source_root = "inputs/raw/odme-policies"
+# Use route_run_root instead of policy_source_root to build policies from DTAC-v2.
+# route_run_root = "inputs/raw/route-runs"
+
+[prepare.auto_calibration]
+source_scenario_root = "inputs/raw/scenarios"
+coverage_root = "inputs/raw/tmc-observation-coverage"
+departure_profile_csv = "inputs/raw/departure_profiles.csv"
+calibration_settings_csv = "inputs/raw/refined_volume_floor_settings.csv"
+episode_period_policy = "split_intersection"
+
+[odme]
+policy_root = "inputs/odme/policies"
+scenario_root = "inputs/scenarios"
+daily_target_csv = "inputs/observations/daily_screens.csv"
+daily_target_column = "observed_daily_vehicle_volume"
+factor_cap = 0.20
+kl_weight = 0.02
+max_iterations = 12
+initial_step = 0.15
+maximum_step = 0.35
+minimum_step = 0.0001
+minimum_improvement = 1e-11
+max_line_search = 8
+projection_iterations = 10000
+projection_tolerance = 0.00002
+
+[auto_calibration]
+scenario_root = "inputs/scenarios"
+backend = "native"
+periods = ["am", "md", "pm"]
+timeout_seconds = 86400
+calibration_settings_csv = "inputs/auto-calibration/refined_volume_floor_settings.csv"
+fallback_qvdf_dictionary = "inputs/auto-calibration/base_qvdf_node_pair_dict.npy"
+pytaplite_path = "../TAPLite4MPO"
