@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import numpy as np
+
 from taplite_calibration import assign, auto_calibrate, native_status
 from taplite_calibration.auto_calibration import run_auto_calibration
 from taplite_calibration.config import AutoCalibrationConfig
@@ -74,3 +76,11 @@ def test_three_period_native_orchestration_builds_dictionary(tmp_path: Path) -> 
     assert manifest["status"] == "complete"
     assert manifest["qvdf_dictionary"]["dictionary_node_pairs"] == 4
     assert dictionary.is_file()
+    calibrated = np.load(dictionary, allow_pickle=True).item()
+    assert len(calibrated) == 4
+    assert all(
+        "QVDF_{}{}".format(parameter, sequence) in values
+        for values in calibrated.values()
+        for parameter in ("plf", "qdf", "n", "s", "cp", "cd", "alpha", "beta")
+        for sequence in (1, 2, 3)
+    )

@@ -5,9 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(TAPLITE_CALIBRATION_SOURCES
-    src/AutoCalibration.cpp
-    src/AutoCalibrationFurtherDevelopment.cpp
-    src/AutoCalibrationRefinement.cpp)
+    src/AutoCalibration.cpp)
 
 find_package(OpenMP)
 
@@ -27,7 +25,7 @@ endif()
 option(TAPLITE_BUILD_CPP_TESTS "Build focused C++ calibration tests" OFF)
 if(TAPLITE_BUILD_CPP_TESTS)
     enable_testing()
-    foreach(test_name IN ITEMS test_auto_calibration test_auto_calibration_refinement)
+    foreach(test_name IN ITEMS test_auto_calibration)
         add_executable(${test_name} tests/${test_name}.cpp ${TAPLITE_CALIBRATION_SOURCES})
         target_include_directories(${test_name} PRIVATE src)
         if(OpenMP_CXX_FOUND)
@@ -36,4 +34,3 @@ if(TAPLITE_BUILD_CPP_TESTS)
         add_test(NAME ${test_name} COMMAND ${test_name})
     endforeach()
 endif()
-

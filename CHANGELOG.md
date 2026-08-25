@@ -1,11 +1,20 @@
 # Changelog
 
+## 0.3.1 - 2026-08-24
+
+- Consolidated the validated fixed-point refinement and its analytical oracle
+  into `AutoCalibration.cpp` and `AutoCalibration.h`.
+- Removed the experimental further-development C++ implementation, mode, build
+  sources, and tests.
+- Added end-to-end validation of the ODME NumPy factor dictionary and its
+  per-OD shards, plus full calibrated QVDF dictionary parameter validation.
+
 ## 0.3.0 - 2026-08-24
 
 - Migrated the minimum TAPLite assignment and refined auto-calibration C++
   source set into this repository and made it the packaged native backend.
 - Promoted `refined_fixed_point` to the bundled kernel's default calibration
-  fit mode; alternative legacy/further modes now require an explicit setting.
+  fit mode; alternative modes required an explicit setting.
 - Removed the runtime dependency on an external `pytaplite` package, adjacent
   TAPLite4MPO development checkout, and TAPLite executable.
 - Added public `assign`, `auto_calibrate`, and `native_status` APIs backed by

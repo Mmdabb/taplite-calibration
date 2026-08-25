@@ -7,8 +7,75 @@
 #include <fstream>
 #include <vector>
 
+namespace {
+
+bool Near(double left, double right, double tolerance = 1e-7) {
+    return std::fabs(left - right) <= tolerance;
+}
+
+taplite::FixedVolumeOracleInput ExactOracleCase() {
+    taplite::FixedVolumeOracleInput input;
+    input.volume = 2400.0;
+    input.lanes = 3.0;
+    input.period_hours = 3.0;
+    input.capacity_vphpl = 2000.0;
+    input.free_speed_mph = 65.0;
+    input.cutoff_speed_mph = 45.0;
+    input.qn = 1.0;
+    input.qs = 4.0;
+    input.observed_duration_hour = 2.0;
+    input.observed_trough_speed_mph = 30.0;
+    const double theta = 8.0 / 15.0;
+    const double queue_factor = 1.0 + theta * (45.0 / 30.0 - 1.0);
+    const double reference_speed = 55.0;
+    const double queue_speed = reference_speed / queue_factor;
+    input.observed_average_speed_mph =
+        (2.0 / 3.0) * queue_speed +
+        (1.0 / 3.0) * (reference_speed + 65.0) / 2.0;
+    return input;
+}
+
+void TestFixedVolumeOracle() {
+    taplite::FixedVolumeOracleConfig config;
+    config.use_bounds = false;
+    const taplite::FixedVolumeOracleInput input = ExactOracleCase();
+    taplite::FixedVolumeOracleResult exact =
+        taplite::SolveFixedVolumeOracle(input, config);
+    assert(exact.status == taplite::OracleStatus::ExactFeasible);
+    assert(exact.exact_feasible);
+    assert(Near(exact.doc_raw, 0.5));
+    assert(Near(exact.raw_prediction.duration_hour,
+                input.observed_duration_hour));
+    assert(Near(exact.raw_prediction.trough_speed_mph,
+                input.observed_trough_speed_mph));
+    assert(Near(exact.raw_prediction.average_speed_mph,
+                input.observed_average_speed_mph));
+
+    config.use_bounds = true;
+    config.maximum_plf = 0.20;
+    config.maximum_qcd = 3.0;
+    const taplite::FixedVolumeOracleResult bounded =
+        taplite::SolveFixedVolumeOracle(input, config);
+    assert(bounded.status == taplite::OracleStatus::MultiBoundLimited);
+    assert(bounded.bound_count == 2);
+
+    taplite::FixedVolumeOracleInput incompatible = input;
+    incompatible.observed_average_speed_mph = 5.0;
+    taplite::FixedVolumeOracleResult failed =
+        taplite::SolveFixedVolumeOracle(incompatible, config);
+    assert(failed.status == taplite::OracleStatus::AverageSpeedIncompatible);
+
+    incompatible = input;
+    incompatible.observed_trough_speed_mph = 50.0;
+    failed = taplite::SolveFixedVolumeOracle(incompatible, config);
+    assert(failed.status == taplite::OracleStatus::QcpSignIncompatible);
+}
+
+}  // namespace
+
 int main()
 {
+    TestFixedVolumeOracle();
     const char* profile_path = "auto_calibration_test_departure.csv";
     {
         std::ofstream profile(profile_path);

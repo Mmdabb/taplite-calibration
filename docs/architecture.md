@@ -36,6 +36,12 @@ factor index dictionary, conservation audits, optimization history, and daily
 screen comparisons. Network files are hard-linked when the platform permits;
 mutable demand files are copied before modification.
 
+The index is `01-odme/results/od_factor_dictionary.npy`. Load it with
+`numpy.load(..., allow_pickle=True).item()` and resolve each relative `file`
+entry from the dictionary's directory. The referenced `.npz` arrays provide
+the adjustment factor for every supported positive interzonal OD cell without
+the memory overhead of millions of Python dictionary entries.
+
 ## Prepare stage
 
 The prepare stage is a run-local gate with structured before/after QA. Daily
@@ -68,6 +74,10 @@ After all three periods finish, a one-time finalizer merges accepted native
 audit parameters into calibrated link files. It then rebuilds consistent speed
 anchors and writes a portable node-pair QVDF dictionary. No CBI, NVTA network,
 old build tree, or calibration run is package data.
+
+The QVDF output is
+`artifacts/calibrated_qvdf_node_pair_dict.npy`; it is a directly loadable NumPy
+dictionary keyed by `(from_node_id, to_node_id)`.
 
 ## Failure behavior
 

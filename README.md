@@ -20,7 +20,7 @@ historical runs, prebuilt executables, or old TAPLite build trees.
 Install the platform wheel that matches your Python and operating system:
 
 ```powershell
-python -m pip install taplite_calibration-0.3.0-cp39-cp39-win_amd64.whl
+python -m pip install taplite_calibration-0.3.1-cp39-cp39-win_amd64.whl
 ```
 
 The wheel already contains the TAPLite assignment kernel and refined
@@ -65,6 +65,8 @@ my-calibration-project/
     │   └── prepared-scenarios/       # calibration-ready scenarios when needed
     ├── 01-odme/                       # when selected
     │   ├── results/
+    │   │   ├── od_factor_dictionary.npy
+    │   │   └── factor_shards/*_od_factors.npz
     │   └── adjusted-scenarios/
     ├── 01- or 02-auto-calibration/    # number reflects stage order
     │   ├── period-runs/{am,md,pm}/
@@ -77,6 +79,12 @@ my-calibration-project/
 All paths stored in `calibration.toml`, manifests, and dictionary indexes are
 relative. A configuration may use `..` to reference a separately managed data
 directory without copying it into this repository.
+
+`od_factor_dictionary.npy` is a NumPy dictionary indexing each period/mode's
+compact per-OD factor shard; every shard includes origin, destination, factor,
+original volume, and adjusted volume arrays. Auto calibration writes the
+directly loadable `calibrated_qvdf_node_pair_dict.npy`, keyed by
+`(from_node_id, to_node_id)` with all AM/MD/PM QVDF parameters.
 
 ## Run
 

@@ -5,15 +5,14 @@ This directory is the minimum native source set required by
 `dev/auto-calibration` working tree on 2026-08-24, including the latest refined
 volume-envelope implementation. This repository is now the authoritative home
 for the packaged calibration implementation. The packaged default fit mode is
-`refined_fixed_point`; legacy and further-development fit modes require an
-explicit native settings override.
+`refined_fixed_point`.
 
 Included here:
 
 - `TAPLite.cpp` and `TAPLite.h`: assignment kernel and dedicated
   `AutoCalibrationAPI` integration point;
-- `AutoCalibration*`: refined calibration engine, inverse/oracle logic, and the
-  isolated further-development helper still referenced by the engine;
+- `AutoCalibration.cpp` and `AutoCalibration.h`: the complete stable refined
+  calibration engine and fixed-volume inverse/oracle logic;
 - `binding.cpp`: Python extension surface for ordinary assignment and dedicated
   auto calibration;
 - focused native tests and the original TAPLite MIT license.

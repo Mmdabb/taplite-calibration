@@ -35,8 +35,6 @@ def _ext_modules():
                 "native/binding.cpp",
                 "native/src/TAPLite.cpp",
                 "native/src/AutoCalibration.cpp",
-                "native/src/AutoCalibrationFurtherDevelopment.cpp",
-                "native/src/AutoCalibrationRefinement.cpp",
             ],
             include_dirs=["native/src"],
             cxx_std=17,

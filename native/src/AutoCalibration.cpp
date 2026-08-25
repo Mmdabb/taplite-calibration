@@ -1,5 +1,4 @@
 #include "AutoCalibration.h"
-#include "AutoCalibrationFurtherDevelopment.h"
 
 #include <algorithm>
 #include <cctype>
@@ -238,10 +237,6 @@ void ApplyConfigValue(AutoCalibrationConfig* config,
         config->minimum_qcp = number;
     } else if (key == "maximum_qcp" && ParseDouble(value, &number)) {
         config->maximum_qcp = number;
-    } else if (key == "minimum_alpha" && ParseDouble(value, &number)) {
-        config->minimum_alpha = number;
-    } else if (key == "maximum_alpha" && ParseDouble(value, &number)) {
-        config->maximum_alpha = number;
     } else if (key == "objective_relative_tolerance" && ParseDouble(value, &number)) {
         config->objective_relative_tolerance = number;
     } else if (key == "parameter_relative_tolerance" && ParseDouble(value, &number)) {
@@ -366,8 +361,6 @@ FixedVolumeOracleConfig BuildOracleConfig(
     oracle.maximum_qcd = config.maximum_qcd;
     oracle.minimum_qcp = config.minimum_qcp;
     oracle.maximum_qcp = config.maximum_qcp;
-    oracle.minimum_alpha = config.minimum_alpha;
-    oracle.maximum_alpha = config.maximum_alpha;
     oracle.residual_tolerance = config.oracle_residual_tolerance;
     oracle.average_speed_feasibility_mph =
         config.average_speed_feasibility_mph;
@@ -414,12 +407,7 @@ FixedVolumeOracleInput BuildOracleInput(
 bool IsRefinedMode(const AutoCalibrationConfig& config) {
     return config.calibration_fit_mode == "diagnostic_exact" ||
         config.calibration_fit_mode == "equilibrium_regularized" ||
-        config.calibration_fit_mode == "refined_fixed_point" ||
-        config.calibration_fit_mode == "further_independent_alpha";
-}
-
-bool IsFurtherDevelopmentMode(const AutoCalibrationConfig& config) {
-    return config.calibration_fit_mode == "further_independent_alpha";
+        config.calibration_fit_mode == "refined_fixed_point";
 }
 
 double ModeledAverageSpeed(const CalibrationLink& link) {
@@ -513,8 +501,6 @@ AutoCalibrationConfig::AutoCalibrationConfig()
       maximum_qcd(20.0),
       minimum_qcp(0.001),
       maximum_qcp(20.0),
-      minimum_alpha(1e-6),
-      maximum_alpha(10.0),
       objective_relative_tolerance(0.002),
       parameter_relative_tolerance(0.005),
       plf_relative_tolerance(0.005),
@@ -536,8 +522,8 @@ AutoCalibrationConfig::AutoCalibrationConfig()
       weight_q_prior(0.02),
       weight_plf_prior(0.01),
       // The packaged implementation promotes the stable refinement as its
-      // default. Legacy/further-development behavior remains available only
-      // when explicitly requested in a settings file.
+      // default. The historical direct-update mode remains available only for
+      // compatibility and focused regression tests.
       calibration_fit_mode("refined_fixed_point"),
       candidate_direction_mode("single"),
       acceptance_policy("objective_first"),
@@ -615,6 +601,13 @@ AutoCalibrationConfig AutoCalibrationConfig::Load(
     config.q_damping = Clamp(config.q_damping, 0.0, 1.0);
     config.rejected_step_reduction = Clamp(
         config.rejected_step_reduction, 0.05, 0.95);
+    if (!IsRefinedMode(config) &&
+        config.calibration_fit_mode != "legacy_regularized") {
+        throw std::invalid_argument(
+            "Unsupported calibration_fit_mode '" +
+            config.calibration_fit_mode +
+            "'; use refined_fixed_point");
+    }
     return config;
 }
 
@@ -1224,7 +1217,6 @@ CalibrationProposal AutoCalibrationEngine::Propose(
     const double plf_step = Clamp(config_.plf_damping * step_scale, 0.0, 1.0);
     const double q_step = Clamp(config_.q_damping * step_scale, 0.0, 1.0);
     const bool refined_mode = IsRefinedMode(config_);
-    const bool further_mode = IsFurtherDevelopmentMode(config_);
     const FixedVolumeOracleConfig oracle_config = BuildOracleConfig(config_);
     std::vector<double> count_log_control(links.size(), 0.0);
     std::vector<double> count_control_weight(links.size(), 0.0);
@@ -1296,17 +1288,12 @@ CalibrationProposal AutoCalibrationEngine::Propose(
 
         double next_qcd = link.qcd;
         double next_qcp = link.qcp;
-        double next_alpha = link.alpha;
-        double next_beta = link.beta;
         FixedVolumeOracleResult oracle;
         if (refined_mode && link.calibration_eligible &&
             link.observation_class == ObservationClass::Episode) {
             const FixedVolumeOracleInput oracle_input = BuildOracleInput(
                 link, period_hours, config_);
-            oracle = further_mode
-                ? SolveIndependentAlphaOracle(
-                    oracle_input, oracle_config, next_plf)
-                : SolveFixedVolumeOracle(oracle_input, oracle_config);
+            oracle = SolveFixedVolumeOracle(oracle_input, oracle_config);
             const bool usable_oracle = IsFinitePositive(oracle.plf_applied) &&
                 IsFinitePositive(oracle.qcd_applied) &&
                 IsFinitePositive(oracle.qcp_applied);
@@ -1341,14 +1328,6 @@ CalibrationProposal AutoCalibrationEngine::Propose(
                     (1.0 - q_step) * SafeLog(
                         IsFinitePositive(link.qcp) ? link.qcp : oracle.qcp_applied) +
                     q_step * SafeLog(oracle.qcp_applied));
-                if (further_mode && IsFinitePositive(oracle.alpha_applied)) {
-                    next_alpha = std::exp(
-                        (1.0 - q_step) * SafeLog(
-                            IsFinitePositive(link.alpha)
-                                ? link.alpha : oracle.alpha_applied) +
-                        q_step * SafeLog(oracle.alpha_applied));
-                    next_beta = oracle.beta_applied;
-                }
             }
         }
         if (link.calibration_eligible) {
@@ -1462,12 +1441,10 @@ CalibrationProposal AutoCalibrationEngine::Propose(
         proposal.qcp[i] = freeze_non_episode ? link.qcp : next_qcp;
         proposal.alpha[i] = freeze_non_episode
             ? link.alpha
-            : (further_mode
-                ? next_alpha
-                : config_.theta * next_qcp * std::pow(next_qcd, link.qs));
+            : config_.theta * next_qcp * std::pow(next_qcd, link.qs);
         proposal.beta[i] = freeze_non_episode
             ? link.beta
-            : (further_mode ? next_beta : link.qn * link.qs);
+            : link.qn * link.qs;
         proposal.oracle[i] = oracle;
     }
     for (std::size_t i = 0; i < links.size(); ++i) {
@@ -2014,7 +1991,7 @@ bool AutoCalibrationEngine::WriteOutputs(
             << "volume_after,doc_before,doc_after,target_reference_speed_mph,"
             << "oracle_doc_raw,oracle_plf_raw,oracle_qcd_raw,oracle_qcp_raw,"
             << "oracle_alpha_raw,oracle_beta_raw,plf_bound_ratio,qcd_bound_ratio,"
-            << "qcp_bound_ratio,alpha_bound_ratio,oracle_plf_applied,oracle_qcd_applied,"
+            << "qcp_bound_ratio,oracle_plf_applied,oracle_qcd_applied,"
             << "oracle_qcp_applied,oracle_alpha_applied,oracle_beta_applied,"
             << "observed_p_raw_hr,observed_p_effective_hr,duration_censored,"
             << "oracle_p_raw,oracle_p_applied,modeled_p_posteq,"
@@ -2044,10 +2021,7 @@ bool AutoCalibrationEngine::WriteOutputs(
                 link.observation_class == ObservationClass::Episode) {
                 const FixedVolumeOracleInput oracle_input = BuildOracleInput(
                     link, period_hours, config_);
-                oracle = IsFurtherDevelopmentMode(config_)
-                    ? SolveIndependentAlphaOracle(
-                        oracle_input, oracle_config, link.plf)
-                    : SolveFixedVolumeOracle(oracle_input, oracle_config);
+                oracle = SolveFixedVolumeOracle(oracle_input, oracle_config);
             }
             const double modeled_duration = link.qcd *
                 std::pow(std::max(0.0, doc), link.qn);
@@ -2079,7 +2053,6 @@ bool AutoCalibrationEngine::WriteOutputs(
                 << ',' << oracle.qcp_raw << ',' << oracle.alpha_raw << ','
                 << oracle.beta_raw << ',' << oracle.plf_bound_ratio << ','
                 << oracle.qcd_bound_ratio << ',' << oracle.qcp_bound_ratio << ','
-                << oracle.alpha_bound_ratio << ','
                 << oracle.plf_applied << ',' << oracle.qcd_applied << ','
                 << oracle.qcp_applied << ',' << oracle.alpha_applied << ','
                 << oracle.beta_applied << ',' << link.observed_duration_hour << ','
@@ -2157,6 +2130,360 @@ bool AutoCalibrationEngine::WriteOutputs(
             << volume_constraints_.size() << "\n"
             << "}\n";
     return true;
+}
+
+}  // namespace taplite
+
+// ---------------------------------------------------------------------------
+// Production fixed-volume refinement oracle
+// ---------------------------------------------------------------------------
+// Kept in this translation unit so AutoCalibration.cpp/.h are the single
+// native implementation surface for calibration.  The equations and bounds
+// are unchanged from the validated refinement implementation.
+
+namespace taplite {
+namespace {
+
+const double kOracleEpsilon = 1e-12;
+
+double OracleNaN() {
+    return std::numeric_limits<double>::quiet_NaN();
+}
+
+bool OraclePositive(double value) {
+    return std::isfinite(value) && value > 0.0;
+}
+
+double OracleClamp(double value, double lower, double upper) {
+    return std::max(lower, std::min(upper, value));
+}
+
+bool OracleChanged(double raw, double applied) {
+    return std::isfinite(raw) && std::isfinite(applied) &&
+        std::fabs(raw - applied) >
+            1e-12 * std::max(1.0, std::fabs(raw));
+}
+
+double OracleBoundRatio(double raw, double lower, double upper) {
+    if (!OraclePositive(raw)) {
+        return OracleNaN();
+    }
+    if (raw < lower) {
+        return raw / std::max(lower, kOracleEpsilon);
+    }
+    if (raw > upper) {
+        return raw / std::max(upper, kOracleEpsilon);
+    }
+    return 1.0;
+}
+
+void SetOracleResiduals(
+    const FixedVolumeOracleInput& input,
+    const QVDFPrediction& prediction,
+    double* duration,
+    double* trough,
+    double* average) {
+    *duration = prediction.duration_hour - input.observed_duration_hour;
+    *trough = prediction.trough_speed_mph - input.observed_trough_speed_mph;
+    *average = prediction.average_speed_mph - input.observed_average_speed_mph;
+}
+
+}  // namespace
+
+QVDFPrediction::QVDFPrediction()
+    : doc(OracleNaN()),
+      duration_hour(OracleNaN()),
+      trough_speed_mph(OracleNaN()),
+      reference_speed_mph(OracleNaN()),
+      queue_speed_mph(OracleNaN()),
+      average_speed_mph(OracleNaN()) {}
+
+FixedVolumeOracleInput::FixedVolumeOracleInput()
+    : volume(OracleNaN()),
+      lanes(OracleNaN()),
+      period_hours(OracleNaN()),
+      capacity_vphpl(OracleNaN()),
+      free_speed_mph(OracleNaN()),
+      cutoff_speed_mph(OracleNaN()),
+      qn(OracleNaN()),
+      qs(OracleNaN()),
+      observed_duration_hour(OracleNaN()),
+      observed_trough_speed_mph(OracleNaN()),
+      observed_average_speed_mph(OracleNaN()) {}
+
+FixedVolumeOracleConfig::FixedVolumeOracleConfig()
+    : theta(8.0 / 15.0),
+      use_bounds(false),
+      minimum_plf(0.10),
+      maximum_plf(1.25),
+      minimum_qcd(0.01),
+      maximum_qcd(20.0),
+      minimum_qcp(0.001),
+      maximum_qcp(20.0),
+      residual_tolerance(1e-7),
+      average_speed_feasibility_mph(0.10),
+      saturated_speed_tolerance_mph(0.25) {}
+
+FixedVolumeOracleResult::FixedVolumeOracleResult()
+    : status(OracleStatus::NotApplicable),
+      exact_feasible(false),
+      duration_semantic_review(false),
+      bound_count(0),
+      target_reference_speed_mph(OracleNaN()),
+      doc_raw(OracleNaN()),
+      plf_raw(OracleNaN()),
+      qcd_raw(OracleNaN()),
+      qcp_raw(OracleNaN()),
+      alpha_raw(OracleNaN()),
+      beta_raw(OracleNaN()),
+      plf_bound_ratio(OracleNaN()),
+      qcd_bound_ratio(OracleNaN()),
+      qcp_bound_ratio(OracleNaN()),
+      plf_applied(OracleNaN()),
+      qcd_applied(OracleNaN()),
+      qcp_applied(OracleNaN()),
+      alpha_applied(OracleNaN()),
+      beta_applied(OracleNaN()),
+      raw_duration_residual(OracleNaN()),
+      raw_trough_residual(OracleNaN()),
+      raw_average_residual(OracleNaN()),
+      applied_duration_residual(OracleNaN()),
+      applied_trough_residual(OracleNaN()),
+      applied_average_residual(OracleNaN()) {}
+
+QVDFPrediction EvaluateRefinedQVDF(
+    const FixedVolumeOracleInput& input,
+    double plf,
+    double qcd,
+    double qcp,
+    double alpha,
+    double beta) {
+    QVDFPrediction result;
+    const double denominator = input.lanes * input.period_hours * plf *
+        input.capacity_vphpl;
+    if (!OraclePositive(denominator) || !OraclePositive(qcd) ||
+        !OraclePositive(qcp) || !OraclePositive(input.qn) ||
+        !OraclePositive(input.qs) || !OraclePositive(alpha) ||
+        !OraclePositive(beta) || !OraclePositive(input.free_speed_mph) ||
+        !OraclePositive(input.cutoff_speed_mph)) {
+        return result;
+    }
+    result.doc = input.volume / denominator;
+    if (!std::isfinite(result.doc) || result.doc < 0.0) {
+        return QVDFPrediction();
+    }
+    result.duration_hour = qcd * std::pow(result.doc, input.qn);
+    result.trough_speed_mph = input.cutoff_speed_mph /
+        std::max(kOracleEpsilon, 1.0 + qcp *
+            std::pow(result.duration_hour, input.qs));
+    result.reference_speed_mph = result.doc < 1.0
+        ? (1.0 - result.doc) * input.free_speed_mph +
+            result.doc * input.cutoff_speed_mph
+        : input.cutoff_speed_mph;
+    result.queue_speed_mph = result.reference_speed_mph /
+        std::max(kOracleEpsilon, 1.0 + alpha *
+            std::pow(result.doc, beta));
+    result.average_speed_mph = result.duration_hour > input.period_hours
+        ? result.queue_speed_mph
+        : (result.duration_hour / input.period_hours) * result.queue_speed_mph +
+            (1.0 - result.duration_hour / input.period_hours) *
+                (result.reference_speed_mph + input.free_speed_mph) / 2.0;
+    return result;
+}
+
+FixedVolumeOracleResult SolveFixedVolumeOracle(
+    const FixedVolumeOracleInput& input,
+    const FixedVolumeOracleConfig& config) {
+    FixedVolumeOracleResult result;
+    if (!OraclePositive(input.volume) || !OraclePositive(input.lanes) ||
+        !OraclePositive(input.period_hours) ||
+        !OraclePositive(input.capacity_vphpl) ||
+        !OraclePositive(input.free_speed_mph) ||
+        !OraclePositive(input.cutoff_speed_mph) ||
+        input.cutoff_speed_mph >= input.free_speed_mph ||
+        !OraclePositive(input.qn) || !OraclePositive(input.qs) ||
+        !OraclePositive(input.observed_duration_hour) ||
+        !OraclePositive(input.observed_trough_speed_mph) ||
+        !OraclePositive(input.observed_average_speed_mph) ||
+        !OraclePositive(config.theta)) {
+        result.status = OracleStatus::InvalidTarget;
+        result.detail =
+            "nonpositive/nonfinite input or cutoff not below free speed";
+        return result;
+    }
+    result.duration_semantic_review = input.observed_duration_hour > 24.0;
+    const double severity = input.cutoff_speed_mph /
+        input.observed_trough_speed_mph - 1.0;
+    if (!(severity > 0.0)) {
+        result.status = OracleStatus::QcpSignIncompatible;
+        result.detail = "observed trough is at or above cutoff speed";
+        return result;
+    }
+    const double queue_factor = 1.0 + config.theta * severity;
+    if (!OraclePositive(queue_factor)) {
+        result.status = OracleStatus::InvalidTarget;
+        result.detail = "invalid analytical queue factor";
+        return result;
+    }
+
+    const double p = input.observed_duration_hour;
+    if (p <= input.period_hours) {
+        const double a = p / input.period_hours;
+        const double coefficient =
+            a / queue_factor + (1.0 - a) / 2.0;
+        const double free_coefficient = (1.0 - a) / 2.0;
+        if (std::fabs(coefficient) <= kOracleEpsilon) {
+            result.status = OracleStatus::InvalidTarget;
+            result.detail = "average-speed inverse has a zero coefficient";
+            return result;
+        }
+        result.target_reference_speed_mph =
+            (input.observed_average_speed_mph -
+             free_coefficient * input.free_speed_mph) / coefficient;
+    } else {
+        result.target_reference_speed_mph =
+            queue_factor * input.observed_average_speed_mph;
+    }
+
+    const double speed_tolerance = std::max(
+        config.average_speed_feasibility_mph, 0.0);
+    if (std::fabs(result.target_reference_speed_mph -
+                  input.cutoff_speed_mph) <=
+        std::max(config.saturated_speed_tolerance_mph, 0.0)) {
+        result.status = OracleStatus::SaturatedNonidentifiable;
+        result.detail =
+            "average speed identifies the saturated branch but not DOC";
+        return result;
+    }
+    if (result.target_reference_speed_mph <=
+            input.cutoff_speed_mph + speed_tolerance ||
+        result.target_reference_speed_mph >
+            input.free_speed_mph + speed_tolerance) {
+        result.status = OracleStatus::AverageSpeedIncompatible;
+        result.detail =
+            "required reference speed is outside (cutoff, free flow]";
+        return result;
+    }
+    result.target_reference_speed_mph = std::min(
+        result.target_reference_speed_mph, input.free_speed_mph);
+    result.doc_raw =
+        (input.free_speed_mph - result.target_reference_speed_mph) /
+        (input.free_speed_mph - input.cutoff_speed_mph);
+    if (!(result.doc_raw > 0.0 && result.doc_raw < 1.0)) {
+        result.status = OracleStatus::AverageSpeedIncompatible;
+        result.detail =
+            "inverse reference speed does not produce DOC in (0,1)";
+        return result;
+    }
+
+    result.plf_raw = input.volume /
+        (input.lanes * input.period_hours * input.capacity_vphpl *
+         result.doc_raw);
+    result.qcd_raw = p / std::pow(result.doc_raw, input.qn);
+    result.qcp_raw = severity / std::pow(p, input.qs);
+    result.alpha_raw = config.theta * result.qcp_raw *
+        std::pow(result.qcd_raw, input.qs);
+    result.beta_raw = input.qn * input.qs;
+    if (!OraclePositive(result.plf_raw) ||
+        !OraclePositive(result.qcd_raw) ||
+        !OraclePositive(result.qcp_raw) ||
+        !OraclePositive(result.alpha_raw) ||
+        !OraclePositive(result.beta_raw)) {
+        result.status = OracleStatus::InvalidTarget;
+        result.detail = "inverse solution produced a nonpositive parameter";
+        return result;
+    }
+
+    result.plf_bound_ratio = OracleBoundRatio(
+        result.plf_raw, config.minimum_plf, config.maximum_plf);
+    result.qcd_bound_ratio = OracleBoundRatio(
+        result.qcd_raw, config.minimum_qcd, config.maximum_qcd);
+    result.qcp_bound_ratio = OracleBoundRatio(
+        result.qcp_raw, config.minimum_qcp, config.maximum_qcp);
+    result.plf_applied = config.use_bounds
+        ? OracleClamp(result.plf_raw, config.minimum_plf, config.maximum_plf)
+        : result.plf_raw;
+    result.qcd_applied = config.use_bounds
+        ? OracleClamp(result.qcd_raw, config.minimum_qcd, config.maximum_qcd)
+        : result.qcd_raw;
+    result.qcp_applied = config.use_bounds
+        ? OracleClamp(result.qcp_raw, config.minimum_qcp, config.maximum_qcp)
+        : result.qcp_raw;
+    result.alpha_applied = config.theta * result.qcp_applied *
+        std::pow(result.qcd_applied, input.qs);
+    result.beta_applied = result.beta_raw;
+    const bool plf_limited =
+        OracleChanged(result.plf_raw, result.plf_applied);
+    const bool qcd_limited =
+        OracleChanged(result.qcd_raw, result.qcd_applied);
+    const bool qcp_limited =
+        OracleChanged(result.qcp_raw, result.qcp_applied);
+    result.bound_count = static_cast<int>(plf_limited) +
+        static_cast<int>(qcd_limited) + static_cast<int>(qcp_limited);
+    if (result.bound_count > 1) {
+        result.status = OracleStatus::MultiBoundLimited;
+        result.detail =
+            "multiple inverse parameters are outside configured bounds";
+    } else if (plf_limited) {
+        result.status = OracleStatus::PlfBoundLimited;
+        result.detail = "inverse PLF is outside configured bounds";
+    } else if (qcd_limited) {
+        result.status = OracleStatus::QcdBoundLimited;
+        result.detail = "inverse Qcd is outside configured bounds";
+    } else if (qcp_limited) {
+        result.status = OracleStatus::QcpBoundLimited;
+        result.detail = "inverse Qcp is outside configured bounds";
+    } else {
+        result.status = OracleStatus::ExactFeasible;
+        result.detail = result.duration_semantic_review
+            ? "exact algebraic fit; duration exceeds 24 hours and requires semantic review"
+            : "exact algebraic fit";
+    }
+
+    result.raw_prediction = EvaluateRefinedQVDF(
+        input, result.plf_raw, result.qcd_raw, result.qcp_raw,
+        result.alpha_raw, result.beta_raw);
+    result.applied_prediction = EvaluateRefinedQVDF(
+        input, result.plf_applied, result.qcd_applied,
+        result.qcp_applied, result.alpha_applied, result.beta_applied);
+    SetOracleResiduals(input, result.raw_prediction,
+        &result.raw_duration_residual, &result.raw_trough_residual,
+        &result.raw_average_residual);
+    SetOracleResiduals(input, result.applied_prediction,
+        &result.applied_duration_residual, &result.applied_trough_residual,
+        &result.applied_average_residual);
+    const double tolerance = std::max(config.residual_tolerance, 0.0);
+    result.exact_feasible =
+        std::fabs(result.raw_duration_residual) <= tolerance &&
+        std::fabs(result.raw_trough_residual) <= tolerance &&
+        std::fabs(result.raw_average_residual) <=
+            std::max(tolerance, config.average_speed_feasibility_mph);
+    if (!result.exact_feasible &&
+        result.status == OracleStatus::ExactFeasible) {
+        result.status = OracleStatus::SemanticReview;
+        result.detail =
+            "inverse parameters did not reconstruct targets within tolerance";
+    }
+    return result;
+}
+
+const char* OracleStatusName(OracleStatus status) {
+    switch (status) {
+        case OracleStatus::ExactFeasible: return "EXACT_FEASIBLE";
+        case OracleStatus::InvalidTarget: return "INVALID_TARGET";
+        case OracleStatus::QcpSignIncompatible:
+            return "QCP_SIGN_INCOMPATIBLE";
+        case OracleStatus::AverageSpeedIncompatible:
+            return "AVG_SPEED_INCOMPATIBLE";
+        case OracleStatus::SaturatedNonidentifiable:
+            return "SATURATED_NONIDENTIFIABLE";
+        case OracleStatus::PlfBoundLimited: return "PLF_BOUND_LIMITED";
+        case OracleStatus::QcdBoundLimited: return "QCD_BOUND_LIMITED";
+        case OracleStatus::QcpBoundLimited: return "QCP_BOUND_LIMITED";
+        case OracleStatus::MultiBoundLimited: return "MULTI_BOUND_LIMITED";
+        case OracleStatus::SemanticReview: return "SEMANTIC_REVIEW";
+        default: return "NOT_APPLICABLE";
+    }
 }
 
 }  // namespace taplite

@@ -39,8 +39,40 @@ def test_checked_in_quickstart_runs_end_to_end(tmp_path: Path) -> None:
     before = float(row["baseline_daily_fixed_policy_vehicle_volume"])
     after = float(row["joint_odme_daily_fixed_policy_vehicle_volume"])
     assert abs(after - observed) < abs(before - observed)
+
+    factor_path = (
+        result.run_dir / "01-odme" / "results" / "od_factor_dictionary.npy"
+    )
+    factor_dictionary = np.load(factor_path, allow_pickle=True).item()
+    assert set(factor_dictionary["periods"]) == {"nt", "am", "md", "pm"}
+    factor_count = 0
+    for period_entry in factor_dictionary["periods"].values():
+        for shard_entry in period_entry["modes"].values():
+            shard = np.load(factor_path.parent / shard_entry["file"])
+            assert set(shard.files) == {
+                "origin_zone_id",
+                "destination_zone_id",
+                "factor",
+                "original_volume",
+                "adjusted_volume",
+            }
+            assert len(shard["factor"]) == shard_entry["positive_od_cells"]
+            assert np.allclose(
+                shard["factor"],
+                shard["adjusted_volume"] / shard["original_volume"],
+                rtol=1e-6,
+            )
+            factor_count += len(shard["factor"])
+    assert factor_count > 0
+
     dictionary = np.load(
         result.run_dir / "artifacts" / "calibrated_qvdf_node_pair_dict.npy",
         allow_pickle=True,
     ).item()
     assert set(dictionary) == {(100, 101), (101, 102)}
+    assert all(
+        "QVDF_{}{}".format(parameter, sequence) in values
+        for values in dictionary.values()
+        for parameter in ("plf", "qdf", "n", "s", "cp", "cd", "alpha", "beta")
+        for sequence in (1, 2, 3)
+    )
