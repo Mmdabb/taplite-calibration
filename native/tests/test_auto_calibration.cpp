@@ -85,7 +85,8 @@ int main()
     assert(engine.history()[0].accepted);
     taplite::CalibrationEvaluation worse = engine.accepted_evaluation();
     worse.objective = engine.accepted_evaluation().objective +
-        std::max(1.0, std::fabs(engine.accepted_evaluation().objective)) * 0.001;
+        std::max(1e-9, std::fabs(engine.accepted_evaluation().objective)) *
+            (config.objective_relative_tolerance + 0.01);
     worse.guardrails_pass = true;
     assert(!engine.ShouldAccept(worse));
     taplite::CalibrationProposal proposal = engine.Propose(links, routes, 1.0);
