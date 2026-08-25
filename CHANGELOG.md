@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.3.0 - 2026-08-24
+
+- Migrated the minimum TAPLite assignment and refined auto-calibration C++
+  source set into this repository and made it the packaged native backend.
+- Promoted `refined_fixed_point` to the bundled kernel's default calibration
+  fit mode; alternative legacy/further modes now require an explicit setting.
+- Removed the runtime dependency on an external `pytaplite` package, adjacent
+  TAPLite4MPO development checkout, and TAPLite executable.
+- Added public `assign`, `auto_calibrate`, and `native_status` APIs backed by
+  `taplite_calibration._native`.
+- Added isolated Python workers for process-scoped native memory cleanup while
+  retaining all calibration inner-loop state in memory.
+- Added a real four-node native-kernel example and native integration test.
+- Changed release artifacts from a universal pure-Python wheel to platform- and
+  Python-specific native wheels.
+
 ## 0.2.0 - 2026-08-24
 
 - Added an automatic prepared-input QA gate before every ODME or

@@ -52,7 +52,6 @@ class AutoCalibrationConfig:
     timeout_seconds: int
     calibration_settings_csv: Optional[Path]
     fallback_qvdf_dictionary: Optional[Path]
-    pytaplite_path: Optional[Path]
 
 
 @dataclass(frozen=True)
@@ -355,11 +354,6 @@ def load_config(
                 project_dir,
                 section.get("fallback_qvdf_dictionary"),
                 "[auto_calibration].fallback_qvdf_dictionary",
-            ),
-            pytaplite_path=optional_project_path(
-                project_dir,
-                section.get("pytaplite_path"),
-                "[auto_calibration].pytaplite_path",
             ),
         )
     return ProjectConfig(

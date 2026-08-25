@@ -52,15 +52,22 @@ sets the TAPLite QVDF/profile execution contract.
 
 ## Auto-calibration stage
 
+The distribution compiles the minimum native source set under `native/` into
+`taplite_calibration._native`. Its binding exposes ordinary `AssignmentAPI`
+and the separate `AutoCalibrationAPI`; no external `pytaplite` package or
+TAPLite executable participates in a packaged run.
+
 The auto-calibration module stages one period at a time and invokes the
-dedicated in-process TAPLite API. Large immutable inputs are hard-linked where
-possible. Each solve gets the selected processor budget, while AM/MD/PM remain
-sequential to control memory.
+dedicated API in an isolated Python worker. The worker reads network and demand
+once, retains every inner equilibrium's DTAC-v2 route/arrival state in memory,
+writes only accepted final outputs, and exits to release process-scoped regional
+memory. Large immutable inputs are hard-linked where possible. Each solve gets
+the selected processor budget, while AM/MD/PM remain sequential.
 
 After all three periods finish, a one-time finalizer merges accepted native
 audit parameters into calibrated link files. It then rebuilds consistent speed
-anchors and writes a portable node-pair QVDF dictionary. No old TAPLite, CBI,
-network, or run tree is package data.
+anchors and writes a portable node-pair QVDF dictionary. No CBI, NVTA network,
+old build tree, or calibration run is package data.
 
 ## Failure behavior
 

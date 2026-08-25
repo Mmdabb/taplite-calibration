@@ -1,0 +1,2 @@
+number_of_iterations,number_of_processors,demand_period_starting_hours,demand_period_ending_hours,base_demand_mode,route_output,column_output,link_output,log_file,auto_calibration,auto_calibration_config,departure_profile_file
+15,2,7,9,0,0,2,1,0,1,auto_calibration_settings.csv,departure_profiles.csv

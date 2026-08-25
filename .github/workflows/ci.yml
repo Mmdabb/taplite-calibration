@@ -6,6 +6,8 @@ on:
 
 jobs:
   test:
+    env:
+      TAPLITE_REQUIRE_OPENMP: "1"
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -24,6 +26,8 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    env:
+      TAPLITE_REQUIRE_OPENMP: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -36,3 +40,14 @@ jobs:
         with:
           name: distributions
           path: dist/
+
+  native-cpp-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: >-
+          cmake -S native -B native-cpp-build
+          -DTAPLITE_BUILD_PYTHON=OFF
+          -DTAPLITE_BUILD_CPP_TESTS=ON
+      - run: cmake --build native-cpp-build --config Release --parallel 2
+      - run: ctest --test-dir native-cpp-build -C Release --output-on-failure

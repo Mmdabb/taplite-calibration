@@ -22,7 +22,7 @@ processors = 20
 # source_scenario_root = "inputs/raw/scenarios"
 # coverage_root = "inputs/raw/tmc-observation-coverage"
 # departure_profile_csv = "inputs/raw/departure_profiles.csv"
-# calibration_settings_csv = "inputs/raw/refined_settings.csv"
+# calibration_settings_csv = "inputs/auto-calibration/refined_auto_calibration_settings.csv"
 # episode_period_policy = "split_intersection"
 
 [odme]
@@ -46,3 +46,4 @@ scenario_root = "inputs/scenarios"
 backend = "native"
 periods = ["am", "md", "pm"]
 timeout_seconds = 86400
+calibration_settings_csv = "inputs/auto-calibration/refined_auto_calibration_settings.csv"

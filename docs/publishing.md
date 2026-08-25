@@ -6,29 +6,35 @@ From the repository root:
 
 ```powershell
 python -m pytest
-python -m build
-python -m twine check dist/*
+python -m build --sdist
+python -m twine check dist/*.tar.gz
 ```
 
-If the `build` package is unavailable on a managed offline machine, the source
-tree also includes a small compatibility `setup.py`:
+Building a wheel locally compiles the bundled C++17 extension. On managed
+Windows machines where compiler executables are blocked, use the wheel built by
+GitHub Actions instead of attempting a local wheel build. A source distribution
+can still be assembled with:
 
 ```powershell
-python setup.py sdist bdist_wheel
+python setup.py sdist
 ```
 
-The expected release files are a pure-Python wheel and source distribution:
+Release artifacts are a source distribution plus platform- and Python-specific
+wheels, for example:
 
 ```text
-dist/taplite_calibration-0.2.0-py3-none-any.whl
-dist/taplite-calibration-0.2.0.tar.gz
+taplite_calibration-0.3.0-cp39-cp39-win_amd64.whl
+taplite_calibration-0.3.0-cp312-cp312-manylinux_2_17_x86_64.whl
+taplite_calibration-0.3.0-cp312-cp312-macosx_11_0_arm64.whl
+taplite_calibration-0.3.0.tar.gz
 ```
 
 Inspect and install the wheel into a temporary environment before publication.
 The package test suite covers the QA pass, repair, and unrecoverable-error
-branches, integer path-screen multiplicity, a real tiny ODME problem, and a
-deterministic auto-calibration contract backend. It does not ship a network or
-compiled TAPLite binary.
+branches, integer path-screen multiplicity, a real tiny ODME problem, the smoke
+workflow backend, and a real tiny native TAPLite auto calibration. The source
+distribution ships the minimum kernel source and a tiny public test network,
+but no prebuilt executable or proprietary network.
 
 `examples/quickstart` is a complete synthetic dataset retained in the source
 distribution so users can validate a clone without proprietary data. Its
@@ -36,9 +42,9 @@ distribution so users can validate a clone without proprietary data. Its
 
 ## Repository setup
 
-Create `Mmdabb/taplite-calibration` on GitHub, then initialize this prepared
-directory as that repository and push it. The project URLs in `pyproject.toml`
-already point there.
+The repository is `Mmdabb/taplite-calibration`. CI compiles and tests the native
+module on Windows and Linux. The release workflow uses `cibuildwheel` to create
+Windows, Linux, and macOS wheels and publishes them with the source distribution.
 
 Protect the default branch, require the CI check, and create a `pypi`
 environment. For PyPI Trusted Publishing, configure the PyPI project to trust
@@ -51,11 +57,12 @@ environment. The workflow publishes only when a GitHub release is published.
 2. Update `CHANGELOG.md` and the version in `pyproject.toml` and
    `src/taplite_calibration/__init__.py` together.
 3. Run tests and build both artifacts.
-4. Create and push tag `v0.2.0`.
+4. Create and push tag `v0.3.0`.
 5. Publish a GitHub release from that tag.
 6. Confirm the Trusted Publishing workflow and then install from PyPI in a
    clean environment.
 
-Do not commit NVTA inputs, outputs, fallback dictionaries, native `.pyd` files,
-credentials, or PyPI tokens. Trusted Publishing does not require a stored API
-token.
+Do not commit NVTA inputs, outputs, fallback dictionaries, locally compiled
+`.pyd`/`.so` files, credentials, or PyPI tokens. Native wheels belong in GitHub
+release/PyPI artifacts, not source control. Trusted Publishing does not require
+a stored API token.

@@ -1,12 +1,13 @@
 [build-system]
-requires = ["setuptools>=61", "wheel"]
+requires = ["setuptools>=64", "wheel", "pybind11>=2.10"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "taplite-calibration"
-version = "0.2.0"
-description = "Input preparation, screen-count ODME, and QVDF auto calibration for TAPLite4MPO"
+version = "0.3.0"
+description = "Self-contained TAPLite assignment, screen-count ODME, and QVDF auto calibration"
 readme = "README.md"
+authors = [{ name = "Mmdabb" }]
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
 keywords = [
@@ -23,7 +24,10 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
-  "Operating System :: OS Independent",
+  "Programming Language :: C++",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
   "Topic :: Scientific/Engineering",
 ]
 dependencies = [
@@ -34,10 +38,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-taplite = ["taplite4mpo>=0.3.0"]
 test = ["pytest>=7"]
 publish = ["build>=1", "twine>=5"]
-all = ["taplite4mpo>=0.3.0", "pytest>=7", "build>=1", "twine>=5"]
+all = ["pytest>=7", "build>=1", "twine>=5"]
 
 [project.urls]
 Homepage = "https://github.com/Mmdabb/taplite-calibration"
@@ -52,7 +55,7 @@ taplite-calibrate = "taplite_calibration.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-taplite_calibration = ["py.typed", "resources/*.toml"]
+taplite_calibration = ["py.typed", "resources/*.toml", "resources/*.csv"]
 
 [tool.pytest.ini_options]
 addopts = "-ra"

@@ -5,8 +5,9 @@ input QA gate, joint NT/AM/MD/PM ODME, adjusted-scenario handoff, and the
 auto-calibration output contract. It contains no NVTA or proprietary data.
 
 The auto-calibration backend is deliberately `smoke`: it verifies package
-orchestration and artifacts without requiring the native TAPLite wheel. Never
-use that backend for a production calibration.
+orchestration and artifacts without spending time on a native TAPLite solve.
+Never use that backend for a production calibration; use the separate
+`examples/native-kernel` network to test the real bundled C++ API.
 
 From the repository root:
 

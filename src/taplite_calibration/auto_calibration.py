@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import csv
 import hashlib
-import importlib
 import json
 import logging
 import math
 import os
 import shutil
-import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,7 +17,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, Tuple
 import numpy as np
 
 from .config import AutoCalibrationConfig, CALIBRATION_PERIODS
-from .errors import CapabilityError
+from . import native as taplite_native
 from .paths import portable_path
 
 
@@ -155,27 +153,6 @@ def validate_qvdf_profile(link_path: Path) -> Dict[str, object]:
     return {"links": rows, "vdf_type": 2, "qvdf_profile_mode": 1}
 
 
-def _import_pytaplite(config: AutoCalibrationConfig) -> Any:
-    if config.pytaplite_path is not None:
-        value = str(config.pytaplite_path)
-        if value not in sys.path:
-            sys.path.insert(0, value)
-    try:
-        module = importlib.import_module("pytaplite")
-    except ImportError as error:
-        raise CapabilityError(
-            "native auto calibration requires TAPLite4MPO with an importable "
-            "pytaplite module; install taplite-calibration[taplite] or set the "
-            "relative [auto_calibration].pytaplite_path"
-        ) from error
-    if not callable(getattr(module, "auto_calibrate", None)):
-        raise CapabilityError(
-            "the installed pytaplite does not expose auto_calibrate; install the "
-            "TAPLite4MPO auto-calibration build"
-        )
-    return module
-
-
 def _run_native_period(
     config: AutoCalibrationConfig,
     source: Path,
@@ -190,13 +167,11 @@ def _run_native_period(
     )
     shutil.copy2(settings_source, destination / "auto_calibration_settings.csv")
     profile_contract = validate_qvdf_profile(destination / "link.csv")
-    pytaplite = _import_pytaplite(config)
     started = time.time()
-    result = pytaplite.auto_calibrate(
+    result = taplite_native.auto_calibrate(
         destination,
         in_place=True,
-        prefer_inproc=True,
-        one_shot=False,
+        isolated=True,
         timeout=config.timeout_seconds,
         settings_overrides={
             "number_of_processors": processors,
@@ -214,7 +189,6 @@ def _run_native_period(
         "auto_calibration_history.csv",
         "auto_calibration_link_audit.csv",
         "auto_calibration_summary.json",
-        "auto_calibration_volume_constraint_audit.csv",
     )
     missing = [name for name in required_outputs if not (destination / name).is_file()]
     if result.returncode != 0 or missing:
@@ -230,6 +204,7 @@ def _run_native_period(
         "source": portable_path(source, project_dir),
         "destination": portable_path(destination, project_dir),
         "processors": processors,
+        "kernel": "bundled taplite_calibration._native",
         "profile_contract": profile_contract,
         "staging": staging,
         "elapsed_seconds": time.time() - started,

@@ -17,7 +17,8 @@ included in the Python distribution.
   `auto_calibration_settings.csv`.
 - `odme/policies/{nt,am,md,pm}/`: `od_screen_policy_<mode>.npz` stores.
 - `observations/daily_screens.csv`: `screen_id` and observed daily volume.
-- `auto-calibration/`: optional fallback QVDF dictionary or shared settings.
+- `auto-calibration/`: packaged refined settings template and optional fallback
+  QVDF dictionary.
 - `raw/`: optional producer outputs used only when prepared-input QA fails.
   Keep clean source scenarios, CBI coverage snapshots, original screen counts,
   and either prebuilt policies or DTAC-v2 route runs under this directory.
@@ -72,6 +73,19 @@ def initialize_project(project_dir: Path) -> List[Path]:
         path = project_dir / value
         path.mkdir(parents=True, exist_ok=True)
         created.append(path)
+    settings_resource = importlib.resources.files(
+        "taplite_calibration.resources"
+    ).joinpath("refined_auto_calibration_settings.csv")
+    settings_path = (
+        project_dir
+        / "inputs"
+        / "auto-calibration"
+        / "refined_auto_calibration_settings.csv"
+    )
+    settings_path.write_text(
+        settings_resource.read_text(encoding="utf-8"), encoding="utf-8"
+    )
+    created.append(settings_path)
     (project_dir / "inputs" / "README.md").write_text(INPUT_README, encoding="utf-8")
     (project_dir / "outputs" / "README.md").write_text(OUTPUT_README, encoding="utf-8")
     created.extend([project_dir / "inputs" / "README.md", project_dir / "outputs" / "README.md"])

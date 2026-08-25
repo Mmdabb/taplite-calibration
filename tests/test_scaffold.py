@@ -15,6 +15,16 @@ def test_scaffold_includes_prepared_and_raw_input_layout(tmp_path: Path) -> None
     assert (project / "inputs" / "raw" / "odme-policies" / "nt").is_dir()
     assert (project / "inputs" / "raw" / "route-runs" / "pm").is_dir()
     assert (project / "inputs" / "raw" / "tmc-observation-coverage").is_dir()
+    settings = (
+        project
+        / "inputs"
+        / "auto-calibration"
+        / "refined_auto_calibration_settings.csv"
+    )
+    assert settings.is_file()
+    assert "calibration_fit_mode,refined_fixed_point" in settings.read_text(
+        encoding="utf-8"
+    )
     config = (project / "calibration.toml").read_text(encoding="utf-8")
     assert '[prepare.odme]' in config
     assert '[prepare.auto_calibration]' in config

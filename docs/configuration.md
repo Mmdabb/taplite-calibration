@@ -42,7 +42,7 @@ policy_source_root = "inputs/raw/prebuilt-od-screen-policies"
 source_scenario_root = "inputs/raw/scenarios"
 coverage_root = "inputs/raw/tmc-observation-coverage"
 departure_profile_csv = "inputs/raw/departure_profiles.csv"
-calibration_settings_csv = "inputs/raw/refined_volume_floor_settings.csv"
+calibration_settings_csv = "inputs/auto-calibration/refined_auto_calibration_settings.csv"
 episode_period_policy = "split_intersection"
 ```
 
@@ -113,20 +113,19 @@ scenario_root = "inputs/scenarios"
 backend = "native"
 periods = ["am", "md", "pm"]
 timeout_seconds = 86400
-# calibration_settings_csv = "inputs/auto-calibration/refined_settings.csv"
+calibration_settings_csv = "inputs/auto-calibration/refined_auto_calibration_settings.csv"
 # fallback_qvdf_dictionary = "inputs/auto-calibration/base_qvdf.npy"
-# pytaplite_path = "../TAPLite4MPO"
 ```
 
-AM, MD, and PM are calibrated as one consistent set. If
+AM, MD, and PM are calibrated as one consistent set. `init` creates the shared
+refined settings template shown above. If
 `calibration_settings_csv` is omitted, each scenario must contain its own
 `auto_calibration_settings.csv`. `fallback_qvdf_dictionary` is needed only when
 some node pairs do not exist in all three period networks or when additional
 base-dictionary coverage must be preserved.
 
-`pytaplite_path` supports an adjacent development checkout. Installed wheels do
-not need it. The path must point to the directory from which `import pytaplite`
-works, not to an executable.
+The native kernel is part of the installed wheel. There is no kernel path,
+executable path, or adjacent-development-checkout setting.
 
 The native preflight requires every link row to have `vdf_type=2` and
 `qvdf_profile_mode=1`. The speed-anchor dictionary and network conversion are

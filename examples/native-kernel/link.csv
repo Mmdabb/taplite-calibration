@@ -1,0 +1,5 @@
+link_id,from_node_id,to_node_id,length,lanes,free_speed,vdf_length_mi,vdf_fftt,vdf_free_speed_mph,capacity,link_type,vdf_type,qvdf_profile_mode,qvdf_start_speed_mph,qvdf_end_speed_mph,vdf_alpha,vdf_beta,vdf_plf,vdf_qdf,cutoff_speed,vdf_cp,vdf_cd,vdf_n,vdf_s,allowed_use,calibration_observation_class,corridor,observed_p_hr,observed_vt2_mph,observed_avg_speed_mph,s3_volume,observation_quality,mode1_plf,mode1_qcd,mode1_qcp
+1,1,3,10,1,60,10,10,60,4000,1,2,1,60,60,0.15,4,1,1,45,0.28125,1,1,4,all,E,upper,1.5,20,35,8000,0.9,1,1,0.28125
+2,1,4,15,1,60,15,15,60,3000,2,2,1,60,60,0.15,4,1,1,45,0.28125,1,1,4,all,N,lower,,,50,6000,0.8,1,1,0.28125
+3,3,2,10,1,60,10,10,60,4000,1,2,1,60,60,0.15,4,1,1,45,0.28125,1,1,4,all,E,upper,1.5,20,35,8000,0.9,1,1,0.28125
+4,4,2,15,1,60,15,15,60,3000,2,2,1,60,60,0.15,4,1,1,45,0.28125,1,1,4,all,N,lower,,,50,6000,0.8,1,1,0.28125
