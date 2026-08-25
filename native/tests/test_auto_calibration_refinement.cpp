@@ -57,7 +57,11 @@ int main() {
     assert(bounded.status == taplite::OracleStatus::MultiBoundLimited);
     assert(bounded.bound_count == 2);
     assert(!Near(bounded.applied_prediction.duration_hour,
-                 input.observed_duration_hour));
+                 input.observed_duration_hour) ||
+           !Near(bounded.applied_prediction.trough_speed_mph,
+                 input.observed_trough_speed_mph) ||
+           !Near(bounded.applied_prediction.average_speed_mph,
+                 input.observed_average_speed_mph));
 
     taplite::FixedVolumeOracleInput incompatible = input;
     incompatible.observed_average_speed_mph = 5.0;

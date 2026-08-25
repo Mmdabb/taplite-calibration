@@ -5839,7 +5839,7 @@ static taplite::CalibrationRouteSummary BuildAutoCalibrationRouteSummary(
 				int rounded = static_cast<int>(floor(minute + 0.5));
 				int day_minute = ((rounded % 1440) + 1440) % 1440;
 				char buffer[6];
-				sprintf_s(buffer, sizeof(buffer), "%02d:%02d",
+				std::snprintf(buffer, sizeof(buffer), "%02d:%02d",
 					day_minute / 60, day_minute % 60);
 				return std::string(buffer);
 			};

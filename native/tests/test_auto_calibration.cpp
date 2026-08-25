@@ -1,5 +1,6 @@
 #include "AutoCalibration.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdio>
@@ -83,7 +84,8 @@ int main()
     assert(engine.history()[0].outer_iteration == 0);
     assert(engine.history()[0].accepted);
     taplite::CalibrationEvaluation worse = engine.accepted_evaluation();
-    worse.objective *= 1.001;
+    worse.objective = engine.accepted_evaluation().objective +
+        std::max(1.0, std::fabs(engine.accepted_evaluation().objective)) * 0.001;
     worse.guardrails_pass = true;
     assert(!engine.ShouldAccept(worse));
     taplite::CalibrationProposal proposal = engine.Propose(links, routes, 1.0);
