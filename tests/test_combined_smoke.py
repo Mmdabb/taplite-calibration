@@ -10,10 +10,33 @@ import pytest
 from scipy import sparse
 
 from taplite_calibration.errors import ConfigurationError
+from taplite_calibration.config import load_config
 from taplite_calibration.pipeline import run_project
+from taplite_calibration.qa import qa_auto_calibration
 
 
 PERIODS = ("nt", "am", "md", "pm")
+
+
+def test_missing_cube_volume_is_a_valid_s3_only_target(tmp_path: Path) -> None:
+    _make_project(tmp_path)
+    for period in ("am", "md", "pm"):
+        path = tmp_path / "inputs" / "scenarios" / period / "link.csv"
+        frame = pd.read_csv(path)
+        frame.loc[0, "cube_vehicle_volume"] = 0.0
+        frame.to_csv(path, index=False)
+
+    config = load_config(tmp_path, mode_override="auto-calibration")
+    assert config.auto_calibration is not None
+    report = qa_auto_calibration(config.auto_calibration)
+
+    assert report.passed
+    assert report.checks["calibrated_rows_without_positive_cube_volume"] == 3
+    assert [issue.code for issue in report.issues] == [
+        "missing_cube_volume",
+        "missing_cube_volume",
+        "missing_cube_volume",
+    ]
 
 
 def _write_link(path: Path, speed: float) -> None:

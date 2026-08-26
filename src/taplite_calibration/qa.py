@@ -226,6 +226,7 @@ def qa_auto_calibration(
     total_links = 0
     target_links = 0
     episode_links = 0
+    links_without_cube_volume = 0
     for period in config.periods:
         scenario = root / period
         link_path = scenario / "link.csv"
@@ -283,7 +284,6 @@ def qa_auto_calibration(
             for column in (
                 "observed_avg_speed_mph",
                 "s3_volume",
-                "cube_vehicle_volume",
                 "observation_quality",
                 "mode1_plf",
                 "mode1_qcd",
@@ -296,6 +296,21 @@ def qa_auto_calibration(
                         "{} must be positive for every E/N link".format(column),
                         link_path,
                     )
+            cube = pd.to_numeric(
+                frame.loc[calibrated, "cube_vehicle_volume"], errors="coerce"
+            )
+            missing_cube = ~(cube.notna() & np.isfinite(cube) & cube.gt(0))
+            if missing_cube.any():
+                count = int(missing_cube.sum())
+                links_without_cube_volume += count
+                report.warning(
+                    "missing_cube_volume",
+                    (
+                        "{} E/N links have no positive CUBE volume; the controller "
+                        "will use their required S3 target without a two-source envelope"
+                    ).format(count),
+                    link_path,
+                )
         if episode.any():
             for column in ("observed_p_hr", "observed_vt2_mph"):
                 if not _positive(frame.loc[episode, column]).all():
@@ -317,6 +332,9 @@ def qa_auto_calibration(
             "network_links_across_periods": int(total_links),
             "calibrated_link_period_rows": int(target_links),
             "episode_link_period_rows": int(episode_links),
+            "calibrated_rows_without_positive_cube_volume": int(
+                links_without_cube_volume
+            ),
         }
     )
     return report

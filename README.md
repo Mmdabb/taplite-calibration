@@ -20,7 +20,7 @@ historical runs, prebuilt executables, or old TAPLite build trees.
 Install the platform wheel that matches your Python and operating system:
 
 ```powershell
-python -m pip install taplite_calibration-0.3.1-cp39-cp39-win_amd64.whl
+python -m pip install taplite_calibration-0.3.2-cp39-cp39-win_amd64.whl
 ```
 
 The wheel already contains the TAPLite assignment kernel and refined

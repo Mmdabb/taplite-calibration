@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 - 2026-08-26
+
+- Aligned prepared-input QA with the native controller: S3 remains required
+  for every calibrated E/N link, while an unavailable CUBE volume is reported
+  as an S3-only warning instead of incorrectly blocking the run.
+
 ## 0.3.1 - 2026-08-24
 
 - Consolidated the validated fixed-point refinement and its analytical oracle

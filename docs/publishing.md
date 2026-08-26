@@ -23,10 +23,10 @@ Release artifacts are a source distribution plus platform- and Python-specific
 wheels, for example:
 
 ```text
-taplite_calibration-0.3.1-cp39-cp39-win_amd64.whl
-taplite_calibration-0.3.1-cp312-cp312-manylinux_2_17_x86_64.whl
-taplite_calibration-0.3.1-cp312-cp312-macosx_11_0_arm64.whl
-taplite_calibration-0.3.1.tar.gz
+taplite_calibration-0.3.2-cp39-cp39-win_amd64.whl
+taplite_calibration-0.3.2-cp312-cp312-manylinux_2_17_x86_64.whl
+taplite_calibration-0.3.2-cp312-cp312-macosx_11_0_arm64.whl
+taplite_calibration-0.3.2.tar.gz
 ```
 
 Inspect and install the wheel into a temporary environment before publication.
@@ -57,7 +57,7 @@ environment. The workflow publishes only when a GitHub release is published.
 2. Update `CHANGELOG.md` and the version in `pyproject.toml` and
    `src/taplite_calibration/__init__.py` together.
 3. Run tests and build both artifacts.
-4. Create and push tag `v0.3.1`.
+4. Create and push tag `v0.3.2`.
 5. Publish a GitHub release from that tag.
 6. Confirm the Trusted Publishing workflow and then install from PyPI in a
    clean environment.
